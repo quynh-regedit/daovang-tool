@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GOM XU ĐÀO VÀNG - AI PREDICT</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Orbitron:wght@700;900&display=swap');
+
+  :root {
+    --bg:       #0a0d14;
+    --bg2:      #111520;
+    --bg3:      #161b2a;
+    --border:   #1e2740;
+    --gold:     #f0b429;
+    --gold2:    #ffd166;
+    --up:       #00e676;
+    --up2:      #69f0ae;
+    --down:     #ff4560;
+    --down2:    #ff6b6b;
+    --skip:     #ffb300;
+    --text:     #e8eaf6;
+    --muted:    #5c677d;
+    --cyan:     #00e5ff;
+    --accent:   #7c4dff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* GRID BG */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(124,77,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,77,255,.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; padding: 12px; max-width: 480px; margin: 0 auto; }
+
+  /* HEADER */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 10px;
+  }
+  .header-title { font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 900; color: var(--gold); letter-spacing: 1px; }
+  .header-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); animation: pulse 1.5s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,118,.4)} 50%{opacity:.8;box-shadow:0 0 0 6px rgba(0,230,118,0)} }
+  .status-dot.err { background: var(--down); animation: none; }
+
+  /* PRICE CARD */
+  .price-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .price-card::before {
+    content: 'BNB';
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    font-family: 'Orbitron', monospace; font-size: 36px; font-weight: 900;
+    color: rgba(240,180,41,.04); letter-spacing: -2px;
+  }
+  .price-row { display: flex; align-items: baseline; gap: 8px; }
+  .price-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .price-val { font-family: 'Orbitron', monospace; font-size: 26px; font-weight: 900; color: var(--cyan); }
+  .price-delta { font-size: 12px; font-weight: 700; }
+  .price-delta.pos { color: var(--up); }
+  .price-delta.neg { color: var(--down); }
+
+  .lock-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .lock-icon { font-size: 11px; }
+  .lock-label { font-size: 10px; color: var(--muted); }
+  .lock-val { font-size: 12px; color: var(--gold); font-weight: 700; }
+
+  /* PHASE BAR */
+  .phase-wrap { margin-bottom: 10px; }
+  .phase-bar-bg {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 14px;
+  }
+  .phase-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .phase-name { font-size: 11px; font-weight: 700; letter-spacing: 2px; }
+  .phase-name.bet  { color: var(--up); }
+  .phase-name.live { color: var(--gold); }
+  .phase-name.end  { color: var(--down); }
+  .phase-time { font-family: 'Orbitron', monospace; font-size: 18px; font-weight: 900; color: var(--text); }
+  .phase-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .phase-fill { height: 100%; border-radius: 3px; transition: width .5s linear; }
+  .phase-fill.bet  { background: linear-gradient(90deg, var(--up), var(--up2)); }
+  .phase-fill.live { background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+  .phase-fill.end  { background: linear-gradient(90deg, var(--down), var(--down2)); }
+
+  /* POOL */
+  .pool-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .pool-header { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .pool-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pool-side { }
+  .pool-side-label { font-size: 10px; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .pool-side-label.up { color: var(--up); }
+  .pool-side-label.dn { color: var(--down); }
+  .pool-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .pool-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+  .pool-fill.up { background: linear-gradient(90deg, var(--up), var(--up2)); }
+  .pool-fill.dn { background: linear-gradient(90deg, var(--down), var(--down2)); }
+  .pool-amount { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* AI PREDICTION */
+  .ai-card {
+    border-radius: 14px; padding: 14px; margin-bottom: 10px;
+    border: 2px solid;
+    position: relative; overflow: hidden;
+    transition: all .3s ease;
+  }
+  .ai-card.up   { background: rgba(0,230,118,.06); border-color: var(--up); }
+  .ai-card.down { background: rgba(255,69,96,.06);  border-color: var(--down); }
+  .ai-card.skip { background: rgba(255,179,0,.06);  border-color: var(--skip); }
+
+  .ai-card::before {
+    content: attr(data-side);
+    position: absolute; right: -10px; top: 50%; transform: translateY(-50%);
+    font-family: 'Orbitron', monospace; font-size: 48px; font-weight: 900;
+    opacity: .05; letter-spacing: -4px;
+  }
+
+  .ai-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .ai-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+  .ai-round { font-size: 10px; color: var(--muted); }
+
+  .ai-side {
+    font-family: 'Orbitron', monospace; font-size: 32px; font-weight: 900;
+    letter-spacing: 2px; line-height: 1;
+  }
+  .ai-side.up   { color: var(--up); text-shadow: 0 0 20px rgba(0,230,118,.4); }
+  .ai-side.down { color: var(--down); text-shadow: 0 0 20px rgba(255,69,96,.4); }
+  .ai-side.skip { color: var(--skip); }
+
+  .ai-pct { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .ai-pct.up   { color: var(--up2); }
+  .ai-pct.down { color: var(--down2); }
+  .ai-pct.skip { color: var(--skip); }
+
+  /* CONFIDENCE BAR */
+  .conf-track { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; margin: 10px 0 6px; }
+  .conf-fill { height: 100%; border-radius: 5px; transition: width .5s ease; }
+  .conf-fill.up   { background: linear-gradient(90deg, #00e676, #69f0ae); }
+  .conf-fill.down { background: linear-gradient(90deg, #ff4560, #ff6b6b); }
+  .conf-fill.skip { background: linear-gradient(90deg, #ffb300, #ffd166); }
+
+  .ai-recommend {
+    font-size: 11px; font-weight: 700; padding: 6px 10px;
+    border-radius: 8px; display: inline-block; margin-top: 4px;
+  }
+  .ai-recommend.strong-up   { background: rgba(0,230,118,.15); color: var(--up); }
+  .ai-recommend.ok-up       { background: rgba(0,230,118,.08); color: var(--up2); }
+  .ai-recommend.strong-down { background: rgba(255,69,96,.15);  color: var(--down); }
+  .ai-recommend.ok-down     { background: rgba(255,69,96,.08);  color: var(--down2); }
+  .ai-recommend.skip        { background: rgba(255,179,0,.12);  color: var(--skip); }
+  .ai-recommend.weak        { background: rgba(92,103,125,.15); color: var(--muted); }
+
+  /* HISTORY */
+  .hist-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .hist-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .hist-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .hist-stats { font-size: 10px; }
+  .hist-stats .up-c { color: var(--up); }
+  .hist-stats .dn-c { color: var(--down); }
+
+  .hist-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .hist-chip {
+    font-size: 9px; font-weight: 700; padding: 3px 6px; border-radius: 4px;
+    display: flex; align-items: center; gap: 2px;
+  }
+  .hist-chip.up   { background: rgba(0,230,118,.12); color: var(--up);   border: 1px solid rgba(0,230,118,.2); }
+  .hist-chip.down { background: rgba(255,69,96,.12);  color: var(--down); border: 1px solid rgba(255,69,96,.2); }
+
+  .hist-diff { font-size: 8px; opacity: .7; }
+
+  /* ANALYSIS */
+  .analysis-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .analysis-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .reason-list { display: flex; flex-direction: column; gap: 4px; }
+  .reason-item { font-size: 10px; color: var(--text); padding: 4px 8px; background: var(--bg3); border-radius: 6px; border-left: 2px solid var(--accent); }
+
+  /* LOG */
+  .log-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 10px 14px; margin-bottom: 10px;
+  }
+  .log-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .log-inner { font-size: 10px; color: var(--muted); line-height: 1.6; max-height: 60px; overflow-y: auto; }
+  .log-inner .err { color: var(--down); }
+  .log-inner .ok  { color: var(--up); }
+
+  /* ROUND INFO */
+  .round-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 8px; font-size: 10px; color: var(--muted);
+  }
+  .round-badge span { color: var(--gold); font-weight: 700; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ANIM */
+  @keyframes slideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .ai-card { animation: slideIn .3s ease; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .blink { animation: blink 1s infinite; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="header-title">⛏ GOM XU ĐÀO VÀNG</div>
+      <div class="header-sub">AI Prediction Tool v6</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="round-badge">Round <span id="rid">—</span></div>
+      <div class="status-dot" id="dot"></div>
+    </div>
+  </div>
+
+  <!-- PRICE -->
+  <div class="price-card">
+    <div class="price-label">GIÁ BNB REALTIME</div>
+    <div class="price-row" style="margin-top:4px">
+      <div class="price-val" id="price">$—</div>
+      <div class="price-delta" id="pdelta"></div>
+    </div>
+    <div class="lock-row" id="lock-row" style="display:none">
+      <span class="lock-icon">🔒</span>
+      <span class="lock-label">Giá Chốt:</span>
+      <span class="lock-val" id="lock-val">—</span>
+    </div>
+  </div>
+
+  <!-- PHASE -->
+  <div class="phase-wrap">
+    <div class="phase-bar-bg">
+      <div class="phase-row">
+        <div class="phase-name" id="phase-name">—</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:10px;color:var(--muted)">Còn lại</div>
+          <div class="phase-time" id="phase-time">—</div>
+        </div>
+      </div>
+      <div class="phase-track">
+        <div class="phase-fill" id="phase-fill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POOL -->
+  <div class="pool-card">
+    <div class="pool-header">Pool đặt cược</div>
+    <div class="pool-bars">
+      <div class="pool-side">
+        <div class="pool-side-label up">
+          <span>▲ LÊN</span>
+          <span id="pool-up-pct">—%</span>
+        </div>
+        <div class="pool-track"><div class="pool-fill up" id="pool-up-fill" style="width:50%"></div></div>
+        <div class="pool-amount" id="pool-up-amt">—</div>
+      </div>
+      <div class="pool-side">
+        <div class="pool-side-label dn">
+          <span>▼ XUỐNG</span>
+          <span id="pool-dn-pct">—%</span>
+        </div>
+        <div class="pool-track"><div class="pool-fill dn" id="pool-dn-fill" style="width:50%"></div></div>
+        <div class="pool-amount" id="pool-dn-amt">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI PREDICTION -->
+  <div class="ai-card skip" id="ai-card" data-side="WAIT">
+    <div class="ai-top">
+      <div class="ai-label">🤖 AI DỰ ĐOÁN</div>
+      <div class="ai-round" id="ai-update">Đang phân tích...</div>
+    </div>
+    <div class="ai-side skip" id="ai-side">ĐANG TẢI</div>
+    <div class="ai-pct skip" id="ai-pct"></div>
+    <div class="conf-track"><div class="conf-fill skip" id="conf-fill" style="width:0%"></div></div>
+    <div class="ai-recommend skip" id="ai-rec">Chờ dữ liệu...</div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="hist-card">
+    <div class="hist-header">
+      <div class="hist-title">📊 Lịch sử round</div>
+      <div class="hist-stats">
+        <span class="up-c" id="stat-up">UP:0</span>
+        &nbsp;
+        <span class="dn-c" id="stat-dn">DN:0</span>
+      </div>
+    </div>
+    <div class="hist-row" id="hist-row">
+      <span style="font-size:10px;color:var(--muted)">Đang tải...</span>
+    </div>
+  </div>
+
+  <!-- ANALYSIS -->
+  <div class="analysis-card">
+    <div class="analysis-title">🔍 Phân tích AI</div>
+    <div class="reason-list" id="reasons">
+      <div class="reason-item">Chờ dữ liệu từ server...</div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-card">
+    <div class="log-title">📡 Log kết nối</div>
+    <div class="log-inner" id="log"></div>
+  </div>
+
+</div>
+
+<script>
+// =========================================================
+// CONFIG
+// =========================================================
+const INIT_DATA = "user=%7B%22id%22%3A5206120008%2C%22first_name%22%3A%22Edogawa%20Conan%20%F0%9F%A6%A5%F0%9F%AB%86%22%2C%22last_name%22%3A%22%22%2C%22username%22%3A%22phucesign%22%2C%22language_code%22%3A%22vi%22%2C%22allows_write_to_pm%22%3Atrue%2C%22photo_url%22%3A%22https%3A%5C%2F%5C%2Ft.me%5C%2Fi%5C%2Fuserpic%5C%2F320%5C%2FBSiN-XDo5SNwk4YzzaNfwYb-pAdGaUMP7GtS0iH9D2t9ZEFsXFIvFIPgce-NAwlR.svg%22%7D&chat_instance=-26671412806719028&chat_type=sender&auth_date=1777612620&signature=VjSZRKvrIw6xy5Nh89tcUWTO82LDdiK3DTFlXEkf4sqLzmmW-mtM407Q9tqd9pzY2uNcWrtizT_PCRnZJDaKCA&hash=a297bc62a9e1d77f4caecf71fdace02778abaa7ba97b0a50a450541c17ebd2f8";
+const API_BASE = "https://gomxudaovang.site";
+const WS_URL   = "wss://gomxudaovang.site/socket.io/?EIO=4&transport=websocket";
+
+// =========================================================
+// STATE
+// =========================================================
+let history    = [];
+let state      = { phase:"", remaining:0, price:0, lockPrice:0, poolUp:0, poolDown:0, roundId:0 };
+let lastRoundId = 0;
+let lastFetch   = 0;
+let ws          = null;
+let pingTimer   = null;
+
+// =========================================================
+// LOG
+// =========================================================
+function log(msg, cls="") {
+  const el = document.getElementById("log");
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = new Date().toLocaleTimeString("vi-VN") + " " + msg;
+  el.prepend(line);
+  while (el.children.length > 8) el.removeChild(el.lastChild);
+}
+
+// =========================================================
+// API: ROUND HISTORY
+// =========================================================
+async function fetchHistory() {
+  try {
+    const res = await fetch(API_BASE + "/roundhistory", {
+      method: "POST",
+      headers: { "content-type":"application/json", "origin":"https://gomxudaovang.online", "referer":"https://gomxudaovang.online/" },
+      body: JSON.stringify({ initData: INIT_DATA })
+    });
+    const data = await res.json();
+    if (!data.roundHistory) return;
+
+    const rounds = [];
+    for (const r of data.roundHistory) {
+      if (!r.result) continue;
+      const lp = parseFloat(r.lockPrice || 0);
+      const ep = parseFloat(r.endPrice  || 0);
+      const diff = lp ? ((ep - lp) / lp * 100) : 0;
+      rounds.push({ roundId: r.roundId, lockPrice: lp, endPrice: ep, result: r.result.toUpperCase(), diff_pct: diff });
+    }
+    rounds.reverse();
+    history = rounds;
+    lastFetch = Date.now();
+    log(`Tải ${rounds.length} round OK`, "ok");
+    renderHistory();
+    runAI();
+  } catch(e) {
+    log("Lỗi fetch history: " + e.message, "err");
+  }
+}
+
+// =========================================================
+// WEBSOCKET
+// =========================================================
+function connectWS() {
+  try {
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      document.getElementById("dot").className = "status-dot";
+      log("WebSocket connected", "ok");
+    };
+
+    ws.onmessage = (e) => {
+      const msg = e.data;
+
+      // handshake
+      if (msg.startsWith("0{")) {
+        ws.send("40");
+        setTimeout(() => {
+          ws.send(`42["init","${INIT_DATA}"]`);
+          ws.send(`42["joinPrediction","${INIT_DATA}"]`);
+        }, 300);
+        clearInterval(pingTimer);
+        pingTimer = setInterval(() => { if (ws.readyState === 1) ws.send("3"); }, 20000);
+        return;
+      }
+
+      // ping
+      if (msg === "2") { ws.send("3"); return; }
+
+      // gameState
+      const gsMatch = msg.match(/42\["gameState",(\{.*?\})\]/);
+      if (gsMatch) {
+        try {
+          const d = JSON.parse(gsMatch[1]);
+          state.phase     = d.phase     || state.phase;
+          state.remaining = d.remaining || state.remaining;
+          state.price     = parseFloat(d.price     || state.price);
+          state.lockPrice = parseFloat(d.lockPrice || state.lockPrice);
+          state.poolUp    = parseInt(d.poolUp   || state.poolUp);
+          state.poolDown  = parseInt(d.poolDown || state.poolDown);
+          state.roundId   = parseInt(d.roundId  || state.roundId);
+
+          if (state.roundId !== lastRoundId && state.roundId > 0) {
+            lastRoundId = state.roundId;
+            fetchHistory();
+          }
+          renderAll();
+        } catch(e){}
+        return;
+      }
+
+      // priceUpdate
+      const puMatch = msg.match(/42\["priceUpdate",(\{.*?\})\]/);
+      if (puMatch) {
+        try {
+          const d = JSON.parse(puMatch[1]);
+          state.price = parseFloat(d.price || state.price);
+          renderPrice();
+        } catch(e){}
+      }
+    };
+
+    ws.onclose = () => {
+      document.getElementById("dot").className = "status-dot err";
+      log("WS closed, reconnecting...", "err");
+      clearInterval(pingTimer);
+      setTimeout(connectWS, 3000);
+    };
+
+    ws.onerror = () => {
+      log("WS error", "err");
+    };
+
+  } catch(e) {
+    log("WS connect fail: " + e.message, "err");
+    setTimeout(connectWS, 4000);
+  }
+}
+
+// =========================================================
+// AI ENGINE
+// =========================================================
+function runAI() {
+  if (history.length < 5) {
+    setAI("SKIP", 50, ["Chưa đủ dữ liệu (cần ≥5 round)"]);
+    return;
+  }
+
+  const recent = history.slice(-20);
+  const results = recent.map(h => h.result);
+  const n = results.length;
+
+  let upScore = 0, dnScore = 0;
+  const reasons = [];
+
+  // 1. Thống kê cơ bản
+  const upCnt = results.filter(r => r==="UP").length;
+  const dnCnt = results.filter(r => r==="DOWN").length;
+  upScore += (upCnt / n) * 30;
+  dnScore += (dnCnt / n) * 30;
+  reasons.push(`📊 ${n} round: UP=${upCnt} DN=${dnCnt}`);
+
+  // 2. Streak
+  const last = results[results.length - 1];
+  let streak = 1;
+  for (let i = results.length - 2; i >= 0; i--) {
+    if (results[i] === last) streak++; else break;
+  }
+  const opp = last === "UP" ? "DOWN" : "UP";
+  if (streak >= 5) {
+    if (opp==="UP") upScore += 20; else dnScore += 20;
+    reasons.push(`🔴 Streak ${last}×${streak} dài → đảo chiều mạnh +20`);
+  } else if (streak >= 3) {
+    if (opp==="UP") upScore += 10; else dnScore += 10;
+    reasons.push(`🟡 Streak ${last}×${streak} → khả năng đảo +10`);
+  } else {
+    if (last==="UP") upScore += 6; else dnScore += 6;
+    reasons.push(`🟢 Streak ngắn ${last}×${streak} → theo xu hướng +6`);
+  }
+
+  // 3. Pattern 4 round
+  if (n >= 4) {
+    const p4 = results.slice(-4).join(",");
+    const pmap = {
+      "UP,DOWN,UP,DOWN":   ["UP",  8, "Pattern UDUD → UP"],
+      "DOWN,UP,DOWN,UP":   ["DOWN",8, "Pattern DUDU → DOWN"],
+      "UP,UP,DOWN,DOWN":   ["UP",  6, "Pattern UUDD → UP"],
+      "DOWN,DOWN,UP,UP":   ["DOWN",6, "Pattern DDUU → DOWN"],
+    };
+    if (pmap[p4]) {
+      const [s, b, label] = pmap[p4];
+      if (s==="UP") upScore += b; else dnScore += b;
+      reasons.push(`🔷 ${label} +${b}`);
+    }
+  }
+
+  // 4. Biên độ giá
+  const last5Diff = history.slice(-5).map(h => Math.abs(h.diff_pct));
+  const avgDiff = last5Diff.reduce((a,b)=>a+b,0) / last5Diff.length;
+  if (avgDiff < 0.005) {
+    upScore *= 0.82; dnScore *= 0.82;
+    reasons.push(`⚠ Biên độ rất nhỏ (${avgDiff.toFixed(4)}%) → giảm confidence`);
+  } else if (avgDiff > 0.05) {
+    reasons.push(`✅ Biên độ tốt (${avgDiff.toFixed(4)}%) → tín hiệu rõ`);
+  }
+
+  // 5. Pool contrarian
+  const pUp = state.poolUp, pDn = state.poolDown, pT = pUp + pDn;
+  if (pT > 0) {
+    if (pDn > pUp * 1.5) {
+      upScore += 8;
+      reasons.push(`💰 Pool lệch DN (${(pDn/pT*100).toFixed(0)}%) → contrarian UP +8`);
+    } else if (pUp > pDn * 1.5) {
+      dnScore += 8;
+      reasons.push(`💰 Pool lệch UP (${(pUp/pT*100).toFixed(0)}%) → contrarian DN +8`);
+    }
+  }
+
+  // Noise nhỏ
+  upScore += Math.random() * 1.5;
+  dnScore += Math.random() * 1.5;
+
+  const total = upScore + dnScore;
+  const upPct = (upScore / total) * 100;
+  const dnPct = (dnScore / total) * 100;
+  const diff  = Math.abs(upPct - dnPct);
+
+  if (diff < 8) {
+    setAI("SKIP", Math.max(upPct, dnPct), reasons);
+  } else if (upPct > dnPct) {
+    setAI("UP", upPct, reasons);
+  } else {
+    setAI("DOWN", dnPct, reasons);
+  }
+}
+
+// =========================================================
+// RENDER
+// =========================================================
+let lastPrice = 0;
+
+function renderPrice() {
+  const p = state.price;
+  const pEl  = document.getElementById("price");
+  const dEl  = document.getElementById("pdelta");
+  pEl.textContent = "$" + p.toFixed(5);
+  if (lastPrice > 0) {
+    const delta = p - lastPrice;
+    dEl.textContent = (delta >= 0 ? "+" : "") + delta.toFixed(5);
+    dEl.className = "price-delta " + (delta >= 0 ? "pos" : "neg");
+  }
+  lastPrice = p;
+
+  const lp = state.lockPrice;
+  const lockRow = document.getElementById("lock-row");
+  if (lp > 0 && state.phase !== "bet") {
+    lockRow.style.display = "flex";
+    document.getElementById("lock-val").textContent = "$" + lp.toFixed(5);
+  } else {
+    lockRow.style.display = "none";
+  }
+}
+
+function renderPhase() {
+  const ph  = (state.phase || "").toLowerCase();
+  const rem = state.remaining;
+  const maxMap = { bet: 30, live: 90, end: 10 };
+  const max = maxMap[ph] || 120;
+
+  const nameEl = document.getElementById("phase-name");
+  const timeEl = document.getElementById("phase-time");
+  const fillEl = document.getElementById("phase-fill");
+
+  const labelMap = { bet: "🎯 ĐẶT CƯỢC", live: "📈 LIVE", end: "🔔 KẾT THÚC" };
+  nameEl.textContent = labelMap[ph] || "—";
+  nameEl.className = "phase-name " + ph;
+  timeEl.textContent = rem + "s";
+  fillEl.className = "phase-fill " + ph;
+  fillEl.style.width = Math.min(100, (rem / max) * 100) + "%";
+}
+
+function renderPool() {
+  const pU = state.poolUp, pD = state.poolDown, pT = pU + pD;
+  if (pT === 0) return;
+  const pct = v => (v / pT * 100).toFixed(1) + "%";
+  const fmt = v => v.toLocaleString("vi-VN");
+  document.getElementById("pool-up-pct").textContent = pct(pU);
+  document.getElementById("pool-dn-pct").textContent = pct(pD);
+  document.getElementById("pool-up-fill").style.width = pct(pU);
+  document.getElementById("pool-dn-fill").style.width = pct(pD);
+  document.getElementById("pool-up-amt").textContent = fmt(pU);
+  document.getElementById("pool-dn-amt").textContent = fmt(pD);
+}
+
+function renderHistory() {
+  const row = document.getElementById("hist-row");
+  const recent = history.slice(-20).reverse();
+  row.innerHTML = "";
+  let upC=0, dnC=0;
+  for (const h of history.slice(-20)) {
+    if (h.result === "UP") upC++; else dnC++;
+  }
+  for (const h of recent) {
+    const chip = document.createElement("div");
+    chip.className = "hist-chip " + h.result.toLowerCase();
+    const arr = h.result === "UP" ? "▲" : "▼";
+    chip.innerHTML = `${arr}<span class="hist-diff">${h.diff_pct >= 0 ? "+" : ""}${h.diff_pct.toFixed(3)}%</span>`;
+    row.appendChild(chip);
+  }
+  document.getElementById("stat-up").textContent = "UP:" + upC;
+  document.getElementById("stat-dn").textContent = "DN:" + dnC;
+  document.getElementById("rid").textContent = state.roundId || "—";
+}
+
+function setAI(side, pct, reasons) {
+  const card   = document.getElementById("ai-card");
+  const sideEl = document.getElementById("ai-side");
+  const pctEl  = document.getElementById("ai-pct");
+  const confEl = document.getElementById("conf-fill");
+  const recEl  = document.getElementById("ai-rec");
+  const updEl  = document.getElementById("ai-update");
+
+  const cls = side === "UP" ? "up" : side === "DOWN" ? "down" : "skip";
+  card.className    = "ai-card " + cls;
+  card.dataset.side = side;
+  sideEl.className  = "ai-side " + cls;
+  pctEl.className   = "ai-pct " + cls;
+  confEl.className  = "conf-fill " + cls;
+
+  const label = { UP: "▲ LÊN", DOWN: "▼ XUỐNG", SKIP: "⚠ BỎ QUA" };
+  sideEl.textContent = label[side] || side;
+  pctEl.textContent  = pct.toFixed(1) + "% confidence";
+  confEl.style.width = Math.min(100, pct) + "%";
+  updEl.textContent  = new Date().toLocaleTimeString("vi-VN");
+
+  // Recommend
+  let recClass = "skip", recText = "⚠ Bỏ round này";
+  if (side === "UP") {
+    if (pct >= 80) { recClass = "strong-up"; recText = "🔥 Kèo CỰC MẠNH — Vào LỚN"; }
+    else if (pct >= 68) { recClass = "ok-up"; recText = "✅ Kèo đẹp — Có thể vào"; }
+    else { recClass = "weak"; recText = "🟡 Kèo yếu — Vào nhỏ"; }
+  } else if (side === "DOWN") {
+    if (pct >= 80) { recClass = "strong-down"; recText = "🔥 Kèo CỰC MẠNH — Vào LỚN"; }
+    else if (pct >= 68) { recClass = "ok-down"; recText = "✅ Kèo đẹp — Có thể vào"; }
+    else { recClass = "weak"; recText = "🟡 Kèo yếu — Vào nhỏ"; }
+  }
+  recEl.className   = "ai-recommend " + recClass;
+  recEl.textContent = recText;
+
+  // Reasons
+  const rList = document.getElementById("reasons");
+  rList.innerHTML = "";
+  for (const r of reasons) {
+    const d = document.createElement("div");
+    d.className = "reason-item";
+    d.textContent = r;
+    rList.appendChild(d);
+  }
+}
+
+function renderAll() {
+  renderPrice();
+  renderPhase();
+  renderPool();
+  renderHistory();
+  runAI();
+}
+
+// =========================================================
+// INIT
+// =========================================================
+window.addEventListener("DOMContentLoaded", async () => {
+  // Telegram WebApp init
+  if (window.Telegram && window.Telegram.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+  }
+
+  log("Đang tải lịch sử...");
+  await fetchHistory();
+
+  log("Đang kết nối WebSocket...");
+  connectWS();
+
+  // Fetch lại history mỗi 2 phút
+  setInterval(() => {
+    if (Date.now() - lastFetch > 120000) fetchHistory();
+  }, 30000);
+});
+</script>
+</body>
+</html>
